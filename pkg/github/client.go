@@ -14,7 +14,7 @@ import (
 	"unicode"
 )
 
-const ENDPOINT_BASE = "https://api.github.com/users/"
+var endpointBase = "https://api.github.com/users/"
 
 type Actor struct {
 	ID           uint64 `json:"id"`
@@ -215,7 +215,6 @@ func parseHTTPHeaders(headers *http.Header) (*GithubResponseHeaders, error) {
 		}
 
 		headerRawVal := headers.Get(headerName)
-		fmt.Printf("header: %q\n", headerName)
 
 		switch fVal.Interface().(type) {
 		case int:
@@ -247,7 +246,7 @@ func parseHTTPHeaders(headers *http.Header) (*GithubResponseHeaders, error) {
 }
 
 func (c *Client) buildUserEventsURL(user string) (string, error) {
-	eventsURL, err := url.JoinPath(ENDPOINT_BASE, user, "events")
+	eventsURL, err := url.JoinPath(endpointBase, "users", user, "events")
 	if err != nil {
 		return "", err
 	}
