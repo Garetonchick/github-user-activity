@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,24 @@ import (
 )
 
 var endpointBase = "https://api.github.com/users/"
+
+var ErrUserNotFound = errors.New("requested user not found")
+
+type GetUserEventsError struct {
+	User string
+	Err  error
+}
+
+func (err *GetUserEventsError) Error() string {
+	if err.Err == ErrUserNotFound {
+		return fmt.Sprintf("user %q not found", err.User)
+	}
+	return err.Err.Error()
+}
+
+func (err *GetUserEventsError) Unwrap() error {
+	return err.Err
+}
 
 type Actor struct {
 	ID           uint64 `json:"id"`
@@ -105,24 +124,24 @@ func (c *Client) Get(ctx context.Context, endpointURL string) (*http.Response, e
 }
 
 // Unmarshals json inside struct pointed by v
-func (c *Client) GetJSON(ctx context.Context, endpointURL string, v any) error {
+func (c *Client) GetJSON(ctx context.Context, endpointURL string, v any) (*http.Response, error) {
 	resp, err := c.Get(ctx, endpointURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	rawJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return resp, err
 	}
 
 	err = json.Unmarshal(rawJSON, v)
 	if err != nil {
-		return err
+		return resp, err
 	}
 
-	return nil
+	return resp, nil
 }
 
 func (c *Client) GetUserEvents(ctx context.Context, user string) ([]Event, error) {
@@ -132,7 +151,12 @@ func (c *Client) GetUserEvents(ctx context.Context, user string) ([]Event, error
 	}
 
 	var events []Event
-	err = c.GetJSON(ctx, eventsURL, &events)
+	resp, err := c.GetJSON(ctx, eventsURL, &events)
+
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return nil, &GetUserEventsError{Err: ErrUserNotFound, User: user}
+	}
+
 	if err != nil {
 		return nil, err
 	}
