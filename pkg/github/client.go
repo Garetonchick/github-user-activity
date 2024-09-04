@@ -97,7 +97,7 @@ func (c *Client) Get(ctx context.Context, endpointURL string) (*http.Response, e
 	c.lastPollTime = time.Now()
 	c.lastPollInterval = time.Second
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpointURL, nil)
+	req, err := buildGetRequest(ctx, endpointURL)
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +166,17 @@ func (c *Client) GetUserEvents(ctx context.Context, user string) ([]Event, error
 
 func (c *Client) waitPollInterval() {
 	time.Sleep(c.NeedsToWait())
+}
+
+func buildGetRequest(ctx context.Context, endpoint string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req.Header.Add("Accept", "application/vnd.github+json")
+	req.Header.Add("X-GitHub-Api-Version", "2022-11-28")
+	query := req.URL.Query()
+	query.Add("per_page", "100")
+	req.URL.RawQuery = query.Encode()
+
+	return req, err
 }
 
 func parseIntHeader(s string) (int, error) {
