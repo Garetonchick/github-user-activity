@@ -15,7 +15,7 @@ import (
 	"unicode"
 )
 
-var endpointBase = "https://api.github.com/users/"
+var endpointBase = "https://api.github.com/"
 
 var ErrUserNotFound = errors.New("requested user not found")
 
