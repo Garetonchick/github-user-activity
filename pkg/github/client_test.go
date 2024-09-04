@@ -187,13 +187,39 @@ func TestRatelimit(t *testing.T) {
 }
 
 func TestContextCancelling(t *testing.T) {
+	svr := newTestServer(t, &defaultServerSettings)
+	defer svr.Close()
 
+	c := NewClient(http.DefaultClient)
+	user := "garetonchick"
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := c.GetUserEvents(ctx, user)
+	if err == nil {
+		t.Fatal("Expected context cancel error")
+	} else if !errors.Is(err, ctx.Err()) {
+		t.Fatalf("Expected context cancel error, but got %q error", err)
+	}
 }
 
 func TestParseHeaders(t *testing.T) {
+	headers := http.Header(make(map[string][]string))
+	now := time.Now().Unix()
+	headers.Add("X-Poll-Interval", "2")
+	headers.Add("X-Ratelimit-Limit", "7")
+	headers.Add("X-Ratelimit-Reset", fmt.Sprintf("%d", now))
+	parsedHeaders, err := parseHTTPHeaders(&headers)
 
-}
-
-func TestField2HeaderName(t *testing.T) {
-
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsedHeaders.XPollInterval != time.Second*2 {
+		t.Fatalf("expected 2 seconds interval, but got %v", parsedHeaders.XPollInterval)
+	}
+	if parsedHeaders.XRatelimitLimit != 7 {
+		t.Fatalf("expected 7, but got %d", parsedHeaders.XRatelimitLimit)
+	}
+	if parsedHeaders.XRatelimitReset.Unix() != now {
+		t.Fatalf("expected %d, but got %d", now, parsedHeaders.XRatelimitReset.Unix())
+	}
 }
